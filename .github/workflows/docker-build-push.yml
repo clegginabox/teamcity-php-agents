@@ -65,7 +65,7 @@ jobs:
           if [ "${{ github.event_name }}" == "workflow_dispatch" ]; then
             echo "version=${{ github.event.inputs.teamcity_version }}" >> $GITHUB_OUTPUT
           else
-            echo "version=2025.11.1" >> $GITHUB_OUTPUT
+            echo "version=2025.11" >> $GITHUB_OUTPUT
           fi
 
       - name: Extract metadata for Docker
