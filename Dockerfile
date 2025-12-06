@@ -3,7 +3,10 @@ ARG PHP_VERSION=8.4
 
 FROM jetbrains/teamcity-agent:${TEAMCITY_VERSION}-linux-sudo
 
-ENV DEBIAN_FRONTEND noninteractive
+# Re-declare PHP_VERSION to make it available after FROM
+ARG PHP_VERSION=8.4
+
+ENV DEBIAN_FRONTEND=noninteractive
 
 COPY --from=composer:latest /usr/bin/composer /usr/bin/composer
 COPY --from=docker:latest /usr/local/bin/docker  /usr/local/bin/
@@ -18,7 +21,6 @@ RUN apt-get update \
     && apt-get install -y \
       php${PHP_VERSION}-cli \
       php${PHP_VERSION}-curl \
-      php${PHP_VERSION}-dom \
       php${PHP_VERSION}-grpc \
       php${PHP_VERSION}-intl \
       php${PHP_VERSION}-mbstring \
