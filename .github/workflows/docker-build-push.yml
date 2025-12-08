@@ -16,7 +16,7 @@ on:
       php_versions:
         description: 'PHP Versions (comma-separated, e.g., 8.2,8.3,8.4)'
         required: true
-        default: '8.2,8.3,8.4'
+        default: '8.2,8.3,8.4,8.5'
 
 env:
   DOCKERHUB_REPOSITORY: ${{ secrets.DOCKERHUB_USERNAME }}/teamcity-php-agent
@@ -26,7 +26,12 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       php_versions: ${{ steps.set_matrix.outputs.php_versions }}
+      teamcity_version: ${{ steps.set_matrix.outputs.teamcity_version }}
+      latest_php_version: ${{ steps.set_matrix.outputs.latest_php_version }}
     steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
       - name: Set matrix versions
         id: set_matrix
         run: |
@@ -35,8 +40,16 @@ jobs:
             IFS=',' read -ra VERSIONS <<< "${{ github.event.inputs.php_versions }}"
             JSON_ARRAY=$(printf '%s\n' "${VERSIONS[@]}" | jq -R . | jq -s .)
             echo "php_versions=$JSON_ARRAY" >> $GITHUB_OUTPUT
+            echo "teamcity_version=${{ github.event.inputs.teamcity_version }}" >> $GITHUB_OUTPUT
+            echo "latest_php_version=$(echo "${VERSIONS[-1]}")" >> $GITHUB_OUTPUT
           else
-            echo 'php_versions=["8.2","8.3","8.4"]' >> $GITHUB_OUTPUT
+            # Read from versions.json
+            PHP_VERSIONS=$(jq -c '.php_versions' versions.json)
+            TEAMCITY_VERSION=$(jq -r '.teamcity_version' versions.json)
+            LATEST_PHP_VERSION=$(jq -r '.latest_php_version' versions.json)
+            echo "php_versions=$PHP_VERSIONS" >> $GITHUB_OUTPUT
+            echo "teamcity_version=$TEAMCITY_VERSION" >> $GITHUB_OUTPUT
+            echo "latest_php_version=$LATEST_PHP_VERSION" >> $GITHUB_OUTPUT
           fi
 
   build-and-push:
@@ -59,24 +72,15 @@ jobs:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
-      - name: Set TeamCity version
-        id: teamcity_version
-        run: |
-          if [ "${{ github.event_name }}" == "workflow_dispatch" ]; then
-            echo "version=${{ github.event.inputs.teamcity_version }}" >> $GITHUB_OUTPUT
-          else
-            echo "version=2025.11" >> $GITHUB_OUTPUT
-          fi
-
       - name: Extract metadata for Docker
         id: meta
         uses: docker/metadata-action@v5
         with:
           images: ${{ env.DOCKERHUB_REPOSITORY }}
           tags: |
-            type=raw,value=teamcity-${{ steps.teamcity_version.outputs.version }}-php-${{ matrix.php_version }}
+            type=raw,value=teamcity-${{ needs.prepare-matrix.outputs.teamcity_version }}-php-${{ matrix.php_version }}
             type=raw,value=php-${{ matrix.php_version }},enable=${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
-            type=raw,value=latest,enable=${{ github.event_name == 'push' && github.ref == 'refs/heads/main' && matrix.php_version == '8.4' }}
+            type=raw,value=latest,enable=${{ github.event_name == 'push' && github.ref == 'refs/heads/main' && matrix.php_version == needs.prepare-matrix.outputs.latest_php_version }}
 
       - name: Build and push Docker image
         uses: docker/build-push-action@v5
@@ -87,7 +91,7 @@ jobs:
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
           build-args: |
-            TEAMCITY_VERSION=${{ steps.teamcity_version.outputs.version }}
+            TEAMCITY_VERSION=${{ needs.prepare-matrix.outputs.teamcity_version }}
             PHP_VERSION=${{ matrix.php_version }}
           cache-from: type=gha
           cache-to: type=gha,mode=max

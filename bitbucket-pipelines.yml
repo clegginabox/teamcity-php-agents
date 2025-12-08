@@ -1,0 +1,31 @@
+image: atlassian/default-image:4
+
+definitions:
+  services:
+    docker:
+      memory: 4096
+
+pipelines:
+  default:
+    - step:
+        name: Build all PHP versions
+        services:
+          - docker
+        script:
+          - apt-get update && apt-get install -y jq
+          - export TEAMCITY_VERSION=$(jq -r '.teamcity_version' versions.json)
+          - export LATEST_PHP=$(jq -r '.latest_php_version' versions.json)
+          - echo $DOCKERHUB_PASSWORD | docker login -u $DOCKERHUB_USERNAME --password-stdin
+          - |
+            jq -r '.php_versions[]' versions.json | while read PHP_VERSION; do
+              echo "Building PHP $PHP_VERSION with TeamCity $TEAMCITY_VERSION"
+
+              TAGS="-t teamcity-php-agent:teamcity-$TEAMCITY_VERSION-php-$PHP_VERSION"
+              TAGS="$TAGS -t $teamcity-php-agent:php-$PHP_VERSION"
+
+              docker build \
+                --build-arg TEAMCITY_VERSION=$TEAMCITY_VERSION \
+                --build-arg PHP_VERSION=$PHP_VERSION \
+                $TAGS \
+                .
+            done
