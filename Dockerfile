@@ -19,6 +19,7 @@ RUN apt-get update \
     && add-apt-repository ppa:ondrej/php \
     && apt-get update \
     && apt-get install -y \
+      php${PHP_VERSION}-bcmath \
       php${PHP_VERSION}-cli \
       php${PHP_VERSION}-curl \
       php${PHP_VERSION}-grpc \
