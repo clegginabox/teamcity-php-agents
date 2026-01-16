@@ -34,6 +34,7 @@ jobs:
 
       - name: Set matrix versions
         id: set_matrix
+        shell: bash
         run: |
           if [ "${{ github.event_name }}" == "workflow_dispatch" ]; then
             # Convert comma-separated input to JSON array
@@ -41,7 +42,7 @@ jobs:
             JSON_ARRAY=$(printf '%s\n' "${VERSIONS[@]}" | jq -R . | jq -s .)
             echo "php_versions=$JSON_ARRAY" >> $GITHUB_OUTPUT
             echo "teamcity_version=${{ github.event.inputs.teamcity_version }}" >> $GITHUB_OUTPUT
-            echo "latest_php_version=$(echo "${VERSIONS[-1]}")" >> $GITHUB_OUTPUT
+            echo "latest_php_version=${VERSIONS[-1]}" >> $GITHUB_OUTPUT
           else
             # Read from versions.json
             PHP_VERSIONS=$(jq -c '.php_versions' versions.json)
